@@ -28,6 +28,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.HumanoidArm;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.LightLayer;
 import net.minecraft.world.level.material.FogType;
@@ -132,6 +133,7 @@ public final class CommonUniforms {
 
 		uniforms
 			.uniform1b(PER_FRAME, "hideGUI", () -> client.options.hideGui)
+			.uniform1b(PER_FRAME, "isRightHanded", () -> client.options.mainHand().get() == HumanoidArm.RIGHT)
 			.uniform1i(PER_FRAME, "isEyeInWater", CommonUniforms::isEyeInWater)
 			.uniform1f(PER_FRAME, "blindness", CommonUniforms::getBlindness)
 			.uniform1f(PER_FRAME, "darknessFactor", CommonUniforms::getDarknessFactor)
@@ -288,7 +290,7 @@ public final class CommonUniforms {
 
 		if (cameraEntity instanceof LivingEntity livingEntity) {
 
-            try {
+			try {
 				// See MixinGameRenderer#iris$safecheckNightvisionStrength.
 				//
 				// We modify the behavior of getNightVisionScale so that it's safe for us to call it even on entities

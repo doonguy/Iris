@@ -1,3 +1,5 @@
+import org.ajoberstar.grgit.Grgit
+
 object Constants {
     // https://fabricmc.net/develop/
     const val MINECRAFT_VERSION: String = "24w11a"
@@ -9,6 +11,11 @@ object Constants {
 
     const val CUSTOM_SODIUM: Boolean = true
     const val CUSTOM_SODIUM_NAME: String = "sodium-fabric-0.5.8-snapshot+mc24w09a-local.jar"
+
+    const val IS_SHARED_BETA: Boolean = true
+    const val ACTIVATE_RENDERDOC: Boolean = false
+    const val BETA_TAG: String = "DH Support"
+    const val BETA_VERSION = 2
 
     const val SODIUM_VERSION: String = "mc1.20.4-0.5.8"
 }
@@ -33,6 +40,8 @@ plugins {
     // is not reachable for some reason, and it makes builds much more reproducible. Observation also shows that it
     // really helps to improve startup times on slow connections.
     id("fabric-loom") version "1.5.7"
+    id("org.ajoberstar.grgit") version "5.2.2"
+    id("com.github.gmazzo.buildconfig") version "5.3.5"
 }
 
 base {
@@ -44,7 +53,7 @@ base {
 
 loom {
     mixin {
-        defaultRefmapName = "iris.refmap.json"
+        useLegacyMixinAp = false
     }
 
     accessWidenerPath = file("src/main/resources/iris.accesswidener")
@@ -59,6 +68,7 @@ sourceSets {
     val main = getByName("main")
     val test = getByName("test")
     val headers = create("headers")
+    create("desktop")
     val vendored = create("vendored")
     val sodiumCompatibility = create("sodiumCompatibility")
 
@@ -96,6 +106,27 @@ sourceSets {
             runtimeClasspath += sodiumCompatibility.output
         }
     }
+}
+
+buildConfig {
+    className("BuildConfig")   // forces the class name. Defaults to 'BuildConfig'
+    packageName("net.irisshaders.iris")  // forces the package. Defaults to '${project.group}'
+    useJavaOutput()
+
+    buildConfigField("IS_SHARED_BETA", Constants.IS_SHARED_BETA)
+    buildConfigField("ACTIVATE_RENDERDOC", Constants.ACTIVATE_RENDERDOC)
+    buildConfigField("BETA_TAG", Constants.BETA_TAG)
+    buildConfigField("BETA_VERSION", Constants.BETA_VERSION)
+
+    sourceSets.getByName("desktop") {
+        buildConfigField("IS_SHARED_BETA", Constants.IS_SHARED_BETA)
+    }
+}
+
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
 }
 
 dependencies {
@@ -137,6 +168,15 @@ dependencies {
 }
 
 tasks {
+    runClient {
+        if (Constants.ACTIVATE_RENDERDOC) {
+            environment("LD_PRELOAD", "/usr/lib/librenderdoc.so")
+        }
+    }
+    getByName<JavaCompile>("compileDesktopJava") {
+        sourceCompatibility = JavaVersion.VERSION_1_8.toString()
+        targetCompatibility = JavaVersion.VERSION_1_8.toString()
+    }
 
     jar {
         from("${rootProject.projectDir}/LICENSE")
@@ -150,11 +190,9 @@ tasks {
         from(vendored.output.classesDirs)
         from(vendored.output.resourcesDir)
 
-        from (sodiumCompatibility.output) {
-            this.filesMatching("*refmap.json") {
-                this.name = "iris-sodium-compat-refmap.json"
-            }
-        }
+        val desktop = sourceSets.getByName("desktop")
+        from(desktop.output.classesDirs)
+        from(desktop.output.resourcesDir)
 
         manifest.attributes["Main-Class"] = "net.irisshaders.iris.LaunchWarn"
     }
@@ -188,13 +226,19 @@ fun createVersionString(): String {
         builder.append("-snapshot")
     }
 
+    val open = Grgit.open {
+        dir = rootDir
+    }
+
     builder.append("+mc").append(Constants.MINECRAFT_VERSION)
 
     if (!isReleaseBuild) {
         if (buildId != null) {
             builder.append("-build.${buildId}")
-        } else {
+        } else if (open == null) {
             builder.append("-local")
+        } else {
+            builder.append("-" + open.head().abbreviatedId + (if (!open.status().isClean) "-dirty" else ""))
         }
     }
 
