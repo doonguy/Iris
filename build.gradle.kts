@@ -2,15 +2,15 @@ import org.ajoberstar.grgit.Grgit
 
 object Constants {
     // https://fabricmc.net/develop/
-    const val MINECRAFT_VERSION: String = "24w11a"
+    const val MINECRAFT_VERSION: String = "24w13a"
     const val FABRIC_LOADER_VERSION: String = "0.15.6"
-    const val FABRIC_API_VERSION: String = "0.96.8+1.20.5"
+    const val FABRIC_API_VERSION: String = "0.96.12+1.20.5"
 
     // https://semver.org/
     const val MOD_VERSION: String = "1.7.0"
 
     const val CUSTOM_SODIUM: Boolean = true
-    const val CUSTOM_SODIUM_NAME: String = "sodium-fabric-0.5.8-snapshot+mc24w09a-local.jar"
+    const val CUSTOM_SODIUM_NAME: String = "sodium-fabric-0.5.8-snapshot+mc24w13a-local.jar"
 
     const val IS_SHARED_BETA: Boolean = true
     const val ACTIVATE_RENDERDOC: Boolean = false
