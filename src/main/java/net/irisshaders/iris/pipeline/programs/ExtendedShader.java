@@ -92,7 +92,7 @@ public class ExtendedShader extends ShaderInstance implements ShaderInstanceInte
 		uniformCreator.accept(uniformBuilder);
 		ProgramImages.Builder builder = ProgramImages.builder(programId);
 		samplerCreator.accept(samplerBuilder, builder);
-		customUniforms.mapholderToPass(uniformBuilder, this);
+		customUniforms.mapPassToObject(uniformBuilder, this);
 		this.usesTessellation = usesTessellation;
 
 		uniforms = uniformBuilder.buildUniforms();

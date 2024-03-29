@@ -32,12 +32,11 @@
     "mixins.iris.compat.indigo.json",
     "mixins.iris.compat.sodium.json",
     "mixins.iris.compat.indium.json",
-    "mixins.iris.fixes.maxfpscrash.json",
-    "mixins.iris.devenvironment.json"
+    "mixins.iris.fixes.maxfpscrash.json"
   ],
   "accessWidener": "iris.accesswidener",
   "depends": {
-    "fabricloader": ">=0.12.3",
+    "fabricloader": ">=0.15.0",
     "minecraft": [
       "1.20.3",
       "1.20.4"

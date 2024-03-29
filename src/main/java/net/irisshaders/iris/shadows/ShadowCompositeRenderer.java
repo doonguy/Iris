@@ -283,7 +283,7 @@ public class ShadowCompositeRenderer {
 		IrisImages.addCustomImages(builder, irisCustomImages);
 		IrisSamplers.addCustomImages(builder, irisCustomImages);
 		Program build = builder.build();
-		this.customUniforms.mapholderToPass(builder, build);
+		this.customUniforms.mapPassToObject(builder, build);
 
 		return build;
 	}
@@ -324,7 +324,7 @@ public class ShadowCompositeRenderer {
 				IrisSamplers.addCustomImages(builder, irisCustomImages);
 				programs[i] = builder.buildCompute();
 
-				this.customUniforms.mapholderToPass(builder, programs[i]);
+				this.customUniforms.mapPassToObject(builder, programs[i]);
 
 
 				programs[i].setWorkGroupInfo(source.getWorkGroupRelative(), source.getWorkGroups(), FilledIndirectPointer.basedOff(holder, source.getIndirectPointer()));

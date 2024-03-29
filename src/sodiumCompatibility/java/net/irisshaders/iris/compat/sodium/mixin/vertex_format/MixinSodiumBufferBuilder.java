@@ -8,7 +8,7 @@ import net.caffeinemc.mods.sodium.api.vertex.attributes.common.NormalAttribute;
 import net.caffeinemc.mods.sodium.api.vertex.attributes.common.PositionAttribute;
 import net.caffeinemc.mods.sodium.api.vertex.format.VertexFormatDescription;
 import net.irisshaders.iris.compat.sodium.impl.vertex_format.IrisCommonVertexAttributes;
-import net.irisshaders.iris.compat.sodium.impl.vertex_format.SodiumBufferBuilderPolygonView;
+import net.irisshaders.iris.compat.sodium.impl.vertex_format.DirectPolygonView;
 import net.irisshaders.iris.uniforms.CapturedRenderingState;
 import net.irisshaders.iris.vertices.BlockSensitiveBufferBuilder;
 import net.irisshaders.iris.vertices.ExtendedDataHelper;
@@ -41,7 +41,7 @@ public abstract class MixinSodiumBufferBuilder implements BlockSensitiveBufferBu
 	@Final
 	private static int ATTRIBUTE_NORMAL_BIT;
 	@Unique
-	private final SodiumBufferBuilderPolygonView polygon = new SodiumBufferBuilderPolygonView();
+	private final DirectPolygonView polygon = new DirectPolygonView();
 	@Unique
 	private final Vector3f normal = new Vector3f();
 	@Shadow

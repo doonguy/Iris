@@ -124,12 +124,6 @@ public class VanillaRenderingPipeline implements WorldRenderingPipeline {
 	}
 
 	@Override
-	public SodiumTerrainPipeline getSodiumTerrainPipeline() {
-		// no shaders to override
-		return null;
-	}
-
-	@Override
 	public FrameUpdateNotifier getFrameUpdateNotifier() {
 		// return a dummy notifier
 		return new FrameUpdateNotifier();

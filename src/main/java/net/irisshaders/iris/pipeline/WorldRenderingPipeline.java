@@ -51,8 +51,6 @@ public interface WorldRenderingPipeline {
 
 	void destroy();
 
-	SodiumTerrainPipeline getSodiumTerrainPipeline();
-
 	FrameUpdateNotifier getFrameUpdateNotifier();
 
 	boolean shouldDisableVanillaEntityShadows();

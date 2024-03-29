@@ -2,6 +2,7 @@ package net.irisshaders.iris.pipeline;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.primitives.Ints;
 import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -9,6 +10,7 @@ import com.mojang.blaze3d.vertex.VertexFormat;
 import it.unimi.dsi.fastutil.objects.Object2ObjectMap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectMaps;
 import net.irisshaders.iris.gl.GLDebug;
+import net.irisshaders.iris.gl.blending.BufferBlendOverride;
 import net.irisshaders.iris.pipeline.programs.ShaderKey;
 import net.irisshaders.iris.pipeline.programs.ShaderMap;
 import net.irisshaders.iris.shaderpack.materialmap.BlockMaterialMapping;
@@ -104,9 +106,13 @@ import org.lwjgl.opengl.GL30C;
 import org.lwjgl.opengl.GL43C;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -115,6 +121,8 @@ import java.util.function.IntFunction;
 import java.util.function.Supplier;
 
 public class IrisRenderingPipeline implements WorldRenderingPipeline, ShaderRenderingPipeline, RenderTargetStateListener {
+	private static final ShaderAttributeInputs SODIUM_INPUTS = new ShaderAttributeInputs(true, true, false, true, true);
+	private final ProgramSet programSet;
 	private final RenderTargets renderTargets;
 	private final ShaderMap shaderMap;
 	private final CustomUniforms customUniforms;
@@ -134,7 +142,6 @@ public class IrisRenderingPipeline implements WorldRenderingPipeline, ShaderRend
 	private final DynamicTexture whitePixel;
 	private final FrameUpdateNotifier updateNotifier;
 	private final CenterDepthSampler centerDepthSampler;
-	private final SodiumTerrainPipeline sodiumTerrainPipeline;
 	private final ColorSpaceConverter colorSpaceConverter;
 	private final ImmutableSet<Integer> flippedBeforeShadow;
 	private final ImmutableSet<Integer> flippedAfterPrepare;
@@ -183,6 +190,8 @@ public class IrisRenderingPipeline implements WorldRenderingPipeline, ShaderRend
 
 	public IrisRenderingPipeline(ProgramSet programSet) {
 		ShaderPrinter.resetPrintState();
+
+		this.programSet = programSet;
 
 		this.shouldRenderUnderwaterOverlay = programSet.getPackDirectives().underwaterOverlay();
 		this.shouldRenderVignette = programSet.getPackDirectives().vignette();
@@ -477,9 +486,9 @@ public class IrisRenderingPipeline implements WorldRenderingPipeline, ShaderRend
 
 		// TODO: Create fallback Sodium shaders if the pack doesn't provide terrain shaders
 		//       Currently we use Sodium's shaders but they don't support EXP2 fog underwater.
-		this.sodiumTerrainPipeline = new SodiumTerrainPipeline(this, programSet, createTerrainSamplers,
-			shadowRenderTargets == null ? null : createShadowTerrainSamplers, createTerrainImages, createShadowTerrainImages, renderTargets, flippedAfterPrepare, flippedAfterTranslucent,
-			shadowRenderTargets != null ? shadowRenderTargets.createShadowFramebuffer(ImmutableSet.of(), programSet.getShadow().filter(source -> !source.getDirectives().hasUnknownDrawBuffers()).map(source -> source.getDirectives().getDrawBuffers()).orElse(new int[]{0, 1})) : null, customUniforms);
+		//this.sodiumTerrainPipeline = new SodiumTerrainPipeline(this, programSet, createTerrainSamplers,
+		//	shadowRenderTargets == null ? null : createShadowTerrainSamplers, createTerrainImages, createShadowTerrainImages, renderTargets, flippedAfterPrepare, flippedAfterTranslucent,
+		//	shadowRenderTargets != null ? shadowRenderTargets.createShadowFramebuffer(ImmutableSet.of(), programSet.getShadow().filter(source -> !source.getDirectives().hasUnknownDrawBuffers()).map(source -> source.getDirectives().getDrawBuffers()).orElse(new int[]{0, 1})) : null, customUniforms);
 
 
 		this.setup = createSetupComputes(programSet.getSetup(), programSet, TextureStage.SETUP);
@@ -593,7 +602,7 @@ public class IrisRenderingPipeline implements WorldRenderingPipeline, ShaderRend
 
 				programs[i] = builder.buildCompute();
 
-				this.customUniforms.mapholderToPass(builder, programs[i]);
+				this.customUniforms.mapPassToObject(builder, programs[i]);
 
 				programs[i].setWorkGroupInfo(source.getWorkGroupRelative(), source.getWorkGroups(), FilledIndirectPointer.basedOff(shaderStorageBufferHolder, source.getIndirectPointer()));
 			}
@@ -656,7 +665,7 @@ public class IrisRenderingPipeline implements WorldRenderingPipeline, ShaderRend
 
 				programs[i] = builder.buildCompute();
 
-				this.customUniforms.mapholderToPass(builder, programs[i]);
+				this.customUniforms.mapPassToObject(builder, programs[i]);
 
 				programs[i].setWorkGroupInfo(source.getWorkGroupRelative(), source.getWorkGroups(), FilledIndirectPointer.basedOff(shaderStorageBufferHolder, source.getIndirectPointer()));
 			}
@@ -751,6 +760,16 @@ public class IrisRenderingPipeline implements WorldRenderingPipeline, ShaderRend
 		loadedShaders.add(extendedShader);
 
 		return extendedShader;
+	}
+
+	public Supplier<ImmutableSet<Integer>> getFlipState(boolean afterPrepare, boolean afterTranslucent) {
+		if (afterTranslucent) {
+			return () -> flippedAfterTranslucent;
+		} else if (afterPrepare) {
+			return () -> flippedAfterPrepare;
+		} else {
+			return () -> flippedBeforeShadow;
+		}
 	}
 
 	public void addGbufferOrShadowSamplers(SamplerHolder samplers, ImageHolder images, Supplier<ImmutableSet<Integer>> flipped,
@@ -1227,11 +1246,6 @@ public class IrisRenderingPipeline implements WorldRenderingPipeline, ShaderRend
 	}
 
 	@Override
-	public SodiumTerrainPipeline getSodiumTerrainPipeline() {
-		return sodiumTerrainPipeline;
-	}
-
-	@Override
 	public FrameUpdateNotifier getFrameUpdateNotifier() {
 		return updateNotifier;
 	}
@@ -1305,5 +1319,49 @@ public class IrisRenderingPipeline implements WorldRenderingPipeline, ShaderRend
 
 	public boolean hasShadowRenderTargets() {
 		return shadowRenderTargets != null;
+	}
+
+	public Map<PatchShaderType, String> getAndPatchSodiumShader(ProgramId id, AlphaTest defaultAlpha) {
+		ProgramSource source = resolver.resolveNullable(id);
+
+		if (source == null) return null;
+
+		return TransformPatcher.patchSodium("sodium_" + id.name(), source.getVertexSource().orElse(null), source.getGeometrySource().orElse(null),
+			source.getTessControlSource().orElse(null), source.getTessEvalSource().orElse(null), source.getFragmentSource().orElse(null), source.getDirectives().getAlphaTestOverride().orElse(defaultAlpha), SODIUM_INPUTS, getTextureMap());
+	}
+
+	public AlphaTest getAlphaOrElse(ProgramId id, AlphaTest defaultAlpha) {
+		return resolver.resolve(id).flatMap(s -> s.getDirectives().getAlphaTestOverride()).orElse(defaultAlpha);
+	}
+
+	public BlendModeOverride getBlendOverride(ProgramId id) {
+		return resolver.resolve(id).flatMap(s -> s.getDirectives().getBlendModeOverride()).orElse(null);
+	}
+
+	public Collection<BufferBlendOverride> getBufferOverrides(ProgramId id) {
+		if (resolver.resolve(id).isEmpty()) return Collections.emptyList();
+
+		ProgramSource source = resolver.resolveNullable(id);
+
+		List<BufferBlendOverride> overrides = new ArrayList<>();
+		source.getDirectives().getBufferBlendOverrides().forEach(information -> {
+			int index = Ints.indexOf(source.getDirectives().getDrawBuffers(), information.index());
+			if (index > -1) {
+				overrides.add(new BufferBlendOverride(index, information.blendMode()));
+			}
+		});
+
+		return overrides;
+	}
+
+	public GlFramebuffer getFramebuffer(ProgramId id, boolean isShadowPass, boolean afterPrepare, boolean afterTranslucent) {
+		if (resolver.resolveNullable(id) == null) return null;
+
+		if (isShadowPass) {
+			ProgramSource source = resolver.resolveNullable(id);
+			return shadowRenderTargets.createShadowFramebuffer(ImmutableSet.of(), source.getDirectives().hasUnknownDrawBuffers() ? new int[]{0, 1} : source.getDirectives().getDrawBuffers());
+		}
+
+		return renderTargets.createGbufferFramebuffer(getFlipState(afterPrepare, afterTranslucent).get(), resolver.resolveNullable(id).getDirectives().getDrawBuffers());
 	}
 }

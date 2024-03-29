@@ -18,7 +18,7 @@ public class SodiumCoreTransformer {
 		root.rename("projectionMatrix", "iris_ProjectionMatrix");
 		root.rename("projectionMatrixInverse", "iris_ProjectionMatrixInverse");
 		root.rename("normalMatrix", "iris_NormalMatrix");
-		root.rename("chunkOffset", "u_RegionOffset");
+		root.rename("chunkOffset", "iris_RegionOffset");
 
 		if (parameters.type == PatchShaderType.VERTEX) {
 			// _draw_translation replaced with Chunks[_draw_id].offset.xyz

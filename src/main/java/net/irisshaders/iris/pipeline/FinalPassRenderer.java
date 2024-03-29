@@ -375,7 +375,7 @@ public class FinalPassRenderer {
 
 		// tell the customUniforms that those locations belong to this pass
 		// this is just an object to index the internal map
-		this.customUniforms.mapholderToPass(builder, build);
+		this.customUniforms.mapPassToObject(builder, build);
 
 		return build;
 	}
@@ -429,7 +429,7 @@ public class FinalPassRenderer {
 
 				programs[i] = builder.buildCompute();
 
-				this.customUniforms.mapholderToPass(builder, programs[i]);
+				this.customUniforms.mapPassToObject(builder, programs[i]);
 
 				programs[i].setWorkGroupInfo(source.getWorkGroupRelative(), source.getWorkGroups(), FilledIndirectPointer.basedOff(holder, source.getIndirectPointer()));
 			}

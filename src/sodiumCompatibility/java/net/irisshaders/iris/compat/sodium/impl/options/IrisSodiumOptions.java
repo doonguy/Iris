@@ -50,7 +50,7 @@ public class IrisSodiumOptions {
 					try {
 						Iris.getIrisConfig().save();
 					} catch (IOException e) {
-						e.printStackTrace();
+						Iris.logger.fatal("Failed to save config!", e);
 					}
 				},
 				options -> IrisVideoSettings.colorSpace)
@@ -63,16 +63,13 @@ public class IrisSodiumOptions {
 	}
 
 	static ControlValueFormatter translateVariableOrDisabled(String key, String disabled) {
-		return (v) -> {
-			return v == 0 ? Component.literal(disabled) : (Component.translatable(key, v));
-		};
+		return (v) -> v == 0 ? Component.literal(disabled) : (Component.translatable(key, v));
 	}
 
 	public static OptionImpl<Options, SupportedGraphicsMode> createLimitedVideoSettingsButton(MinecraftOptionsStorage vanillaOpts) {
 		return OptionImpl.createBuilder(SupportedGraphicsMode.class, vanillaOpts)
 			.setName(Component.translatable("options.graphics"))
-			// TODO: State that Fabulous Graphics is incompatible with Shader Packs in the tooltip
-			.setTooltip(Component.translatable("sodium.options.graphics_quality.tooltip"))
+			.setTooltip(Component.translatable("iris.graphics.limited"))
 			.setControl(option -> new CyclingControl<>(option, SupportedGraphicsMode.class,
 				new Component[]{Component.translatable("options.graphics.fast"), Component.translatable("options.graphics.fancy")}))
 			.setBinding(

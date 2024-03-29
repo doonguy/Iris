@@ -70,5 +70,6 @@
   "pack.iris.configure.title": "Configure",
   "pack.iris.list.label": "+ Drag and Drop Shader Packs to add",
   "label.iris.true": "On",
-  "label.iris.false": "Off"
+  "label.iris.false": "Off",
+  "iris.graphics.limited": "Fabulous graphics is not supported with shaders. If the options below are left to \"Default\", they will use this setting."
 }

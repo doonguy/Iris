@@ -202,7 +202,7 @@ public class CustomUniforms implements FunctionContext {
 		this.locationMap.put(targetHolder, locations);
 	}
 
-	public void mapholderToPass(LocationalUniformHolder holder, Object pass) {
+	public void mapPassToObject(LocationalUniformHolder holder, Object pass) {
 		locationMap.put(pass, locationMap.remove(holder));
 	}
 

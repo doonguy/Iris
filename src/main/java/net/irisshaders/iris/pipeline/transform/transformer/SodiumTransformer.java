@@ -105,9 +105,9 @@ public class SodiumTransformer {
 			tree.parseAndInjectNodes(t, ASTInjectionPoint.BEFORE_DECLARATIONS,
 				"uniform mat4 iris_ProjectionMatrix;",
 				"uniform mat4 iris_ModelViewMatrix;",
-				"uniform vec3 u_RegionOffset;",
+				"uniform vec3 iris_RegionOffset;",
 				// _draw_translation replaced with Chunks[_draw_id].offset.xyz
-				"vec4 getVertexPosition() { return vec4(_vert_position + u_RegionOffset + _get_draw_translation(_draw_id), 1.0); }");
+				"vec4 getVertexPosition() { return vec4(_vert_position + iris_RegionOffset + _get_draw_translation(_draw_id), 1.0); }");
 			root.replaceReferenceExpressions(t, "gl_Vertex", "getVertexPosition()");
 
 			// inject here so that _vert_position is available to the above. (injections

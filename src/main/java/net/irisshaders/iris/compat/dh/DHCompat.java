@@ -128,6 +128,8 @@ public class DHCompat {
 	}
 
 	public static boolean checkFrame() {
+		if (!dhPresent) return false;
+
 		try {
 			return (boolean) checkFrame.invoke();
 		} catch (Throwable e) {

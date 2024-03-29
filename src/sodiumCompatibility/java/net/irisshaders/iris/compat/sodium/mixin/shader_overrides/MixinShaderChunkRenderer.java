@@ -1,97 +1,86 @@
 package net.irisshaders.iris.compat.sodium.mixin.shader_overrides;
 
-import com.mojang.blaze3d.systems.RenderSystem;
-import me.jellysquid.mods.sodium.client.gl.device.RenderDevice;
 import me.jellysquid.mods.sodium.client.gl.shader.GlProgram;
 import me.jellysquid.mods.sodium.client.render.chunk.ShaderChunkRenderer;
+import me.jellysquid.mods.sodium.client.render.chunk.shader.ChunkFogMode;
 import me.jellysquid.mods.sodium.client.render.chunk.shader.ChunkShaderInterface;
+import me.jellysquid.mods.sodium.client.render.chunk.shader.ChunkShaderOptions;
 import me.jellysquid.mods.sodium.client.render.chunk.terrain.TerrainRenderPass;
 import me.jellysquid.mods.sodium.client.render.chunk.vertex.format.ChunkVertexType;
-import net.irisshaders.iris.compat.sodium.impl.shader_overrides.IrisChunkProgramOverrides;
-import net.irisshaders.iris.compat.sodium.impl.shader_overrides.IrisChunkShaderInterface;
-import net.irisshaders.iris.compat.sodium.impl.shader_overrides.ShaderChunkRendererExt;
-import net.irisshaders.iris.gl.program.ProgramSamplers;
-import net.irisshaders.iris.gl.program.ProgramUniforms;
-import net.irisshaders.iris.shadows.ShadowRenderingState;
+import net.irisshaders.iris.Iris;
+import net.irisshaders.iris.api.v0.IrisApi;
+import net.irisshaders.iris.compat.sodium.impl.shader.IrisShaderInterface;
+import net.irisshaders.iris.compat.sodium.impl.shader.ShaderChunkRendererExt;
+import net.irisshaders.iris.compat.sodium.impl.shader.SodiumShaderCreator;
+import net.irisshaders.iris.pipeline.IrisRenderingPipeline;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
-import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-/**
- * Overrides shaders in {@link ShaderChunkRenderer} with our own as needed.
- */
+import java.util.EnumMap;
+
 @Mixin(ShaderChunkRenderer.class)
-public class MixinShaderChunkRenderer implements ShaderChunkRendererExt {
-	@Shadow(remap = false)
+public abstract class MixinShaderChunkRenderer implements ShaderChunkRendererExt {
+	@Shadow
+	protected GlProgram<ChunkShaderInterface> activeProgram;
+	@Shadow
 	@Final
 	protected ChunkVertexType vertexType;
-	@Unique
-	private IrisChunkProgramOverrides irisChunkProgramOverrides;
-	@Unique
-	private GlProgram<IrisChunkShaderInterface> override;
-	@Shadow(remap = false)
-	private GlProgram<ChunkShaderInterface> activeProgram;
+	private final EnumMap<SodiumShaderCreator.ShaderTypes, GlProgram<IrisShaderInterface>> interfac = new EnumMap<>(SodiumShaderCreator.ShaderTypes.class);
+	private int version;
 
-	@Inject(method = "<init>", at = @At("RETURN"), remap = false)
-	private void iris$onInit(RenderDevice device, ChunkVertexType vertexType, CallbackInfo ci) {
-		irisChunkProgramOverrides = new IrisChunkProgramOverrides();
-	}
+	@Shadow
+	protected abstract GlProgram<ChunkShaderInterface> compileProgram(ChunkShaderOptions options);
 
-	@Inject(method = "begin", at = @At("HEAD"), cancellable = true, remap = false)
-	private void iris$begin(TerrainRenderPass pass, CallbackInfo ci) {
-		this.override = irisChunkProgramOverrides.getProgramOverride(pass, this.vertexType);
-
-		irisChunkProgramOverrides.bindFramebuffer(pass);
-
-		if (this.override == null) {
-			return;
+	@Inject(method = "begin", at = @At(value = "INVOKE", target = "Lme/jellysquid/mods/sodium/client/render/chunk/terrain/TerrainRenderPass;startDrawing()V", shift = At.Shift.AFTER), cancellable = true)
+	private void overrideShaders(TerrainRenderPass pass, CallbackInfo ci) {
+		if (version != Iris.getPipelineManager().getVersionCounterForSodiumShaderReload()) {
+			version = Iris.getPipelineManager().getVersionCounterForSodiumShaderReload();
+			interfac.values().forEach(GlProgram::delete);
+			interfac.clear();
 		}
 
-		// Override with our own behavior
-		ci.cancel();
+		if (activeProgram == null) {
+			ChunkShaderOptions options = new ChunkShaderOptions(ChunkFogMode.SMOOTH, pass, this.vertexType);
 
-		// Set a sentinel value here, so we can catch it in RegionChunkRenderer and handle it appropriately.
-		activeProgram = null;
-
-		if (ShadowRenderingState.areShadowsCurrentlyBeingRendered()) {
-			// No back face culling during the shadow pass
-			// TODO: Hopefully this won't be necessary in the future...
-			RenderSystem.disableCull();
+			this.activeProgram = this.compileProgram(options);
 		}
 
-		pass.startDrawing();
+		if (IrisApi.getInstance().isShaderPackInUse()) {
+			GlProgram<IrisShaderInterface> program = interfac.computeIfAbsent(SodiumShaderCreator.toType(pass), a -> SodiumShaderCreator.patchAndCreateShader((IrisRenderingPipeline) Iris.getPipelineManager().getPipelineNullable(), SodiumShaderCreator.toType(pass)));
 
-		override.bind();
-		override.getInterface().setupState();
-	}
-
-	@Inject(method = "end", at = @At("HEAD"), remap = false, cancellable = true)
-	private void iris$onEnd(TerrainRenderPass pass, CallbackInfo ci) {
-		ProgramUniforms.clearActiveUniforms();
-		ProgramSamplers.clearActiveSamplers();
-		irisChunkProgramOverrides.unbindFramebuffer();
-
-		if (override != null) {
-			override.getInterface().restore();
-			override.unbind();
-			pass.endDrawing();
-
-			override = null;
-			ci.cancel();
+			if (program != null) {
+				ci.cancel();
+				program.bind();
+				program.getInterface().setupState();
+			}
 		}
 	}
 
-	@Inject(method = "delete", at = @At("HEAD"), remap = false)
-	private void iris$onDelete(CallbackInfo ci) {
-		irisChunkProgramOverrides.deleteShaders();
+	@Inject(method = "end", at = @At(value = "INVOKE", target = "Lme/jellysquid/mods/sodium/client/render/chunk/terrain/TerrainRenderPass;endDrawing()V", shift = At.Shift.AFTER), cancellable = true)
+	private void overrideShaders2(TerrainRenderPass pass, CallbackInfo ci) {
+		if (version != Iris.getPipelineManager().getVersionCounterForSodiumShaderReload()) {
+			version = Iris.getPipelineManager().getVersionCounterForSodiumShaderReload();
+			interfac.values().forEach(GlProgram::delete);
+			interfac.clear();
+		}
+
+		if (IrisApi.getInstance().isShaderPackInUse()) {
+			GlProgram<IrisShaderInterface> program = interfac.computeIfAbsent(SodiumShaderCreator.toType(pass), a -> SodiumShaderCreator.patchAndCreateShader((IrisRenderingPipeline) Iris.getPipelineManager().getPipelineNullable(), SodiumShaderCreator.toType(pass)));
+
+			if (program != null) {
+				ci.cancel();
+				program.getInterface().clearState();
+				program.unbind();
+			}
+		}
 	}
 
 	@Override
-	public GlProgram<IrisChunkShaderInterface> iris$getOverride() {
-		return override;
+	public GlProgram<IrisShaderInterface> getProgram(TerrainRenderPass pass) {
+		return interfac.computeIfAbsent(SodiumShaderCreator.toType(pass), a -> SodiumShaderCreator.patchAndCreateShader((IrisRenderingPipeline) Iris.getPipelineManager().getPipelineNullable(), SodiumShaderCreator.toType(pass)));
 	}
 }

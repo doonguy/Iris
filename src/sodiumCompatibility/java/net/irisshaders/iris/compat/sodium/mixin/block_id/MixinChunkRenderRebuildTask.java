@@ -13,7 +13,7 @@ import me.jellysquid.mods.sodium.client.render.chunk.terrain.material.DefaultMat
 import me.jellysquid.mods.sodium.client.render.chunk.vertex.format.ChunkVertexEncoder;
 import me.jellysquid.mods.sodium.client.util.task.CancellationToken;
 import me.jellysquid.mods.sodium.client.world.WorldSlice;
-import net.irisshaders.iris.compat.sodium.impl.block_context.ChunkBuildBuffersExt;
+import net.irisshaders.iris.compat.sodium.impl.vertex.IrisVertexEncoder;
 import net.irisshaders.iris.shaderpack.materialmap.WorldRenderingSettings;
 import net.irisshaders.iris.vertices.ExtendedDataHelper;
 import net.minecraft.client.renderer.chunk.VisGraph;
@@ -47,9 +47,9 @@ public class MixinChunkRenderRebuildTask {
 								  int relY, int relZ, int relX, BlockState blockState) {
 		if (WorldRenderingSettings.INSTANCE.shouldVoxelizeLightBlocks() && blockState.getBlock() instanceof LightBlock) {
 			ChunkModelBuilder buildBuffers = buffers.get(DefaultMaterials.CUTOUT);
-			((ChunkBuildBuffersExt) buffers).iris$setLocalPos(0, 0, 0);
-			((ChunkBuildBuffersExt) buffers).iris$ignoreMidBlock(true);
-			((ChunkBuildBuffersExt) buffers).iris$setMaterialId(blockState, (short) 0);
+			((IrisVertexEncoder) buffers).setBlockPosition(0, 0, 0);
+			//((IrisVertexEncoder) buffers).iris$ignoreMidBlock(true);
+			((IrisVertexEncoder) buffers).setBlockInfo(blockState, (short) 0);
 			for (int i = 0; i < 4; i++) {
 				vertices[i].x = (float) ((relX & 15)) + 0.25f;
 				vertices[i].y = (float) ((relY & 15)) + 0.25f;
@@ -60,12 +60,12 @@ public class MixinChunkRenderRebuildTask {
 				vertices[i].light = blockState.getLightEmission() << 4 | blockState.getLightEmission() << 20;
 			}
 			buildBuffers.getVertexBuffer(ModelQuadFacing.UNASSIGNED).push(vertices, DefaultMaterials.CUTOUT);
-			((ChunkBuildBuffersExt) buffers).iris$ignoreMidBlock(false);
+			//((ChunkBuildBuffersExt) buffers).iris$ignoreMidBlock(false);
 			return;
 		}
 
-		if (context.buffers instanceof ChunkBuildBuffersExt) {
-			((ChunkBuildBuffersExt) context.buffers).iris$setLocalPos(relX, relY, relZ);
+		if (context.buffers instanceof IrisVertexEncoder) {
+			((IrisVertexEncoder) context.buffers).setBlockPosition(relX, relY, relZ);
 		}
 	}
 
@@ -78,8 +78,8 @@ public class MixinChunkRenderRebuildTask {
 										WorldSlice slice, int baseX, int baseY, int baseZ, int maxX, int maxY, int maxZ,
 										BlockPos.MutableBlockPos pos, BlockPos.MutableBlockPos renderOffset, BlockRenderContext context2,
 										int relY, int relZ, int relX, BlockState blockState) {
-		if (context.buffers instanceof ChunkBuildBuffersExt) {
-			((ChunkBuildBuffersExt) context.buffers).iris$setMaterialId(blockState, ExtendedDataHelper.BLOCK_RENDER_TYPE);
+		if (context.buffers instanceof IrisVertexEncoder) {
+			((IrisVertexEncoder) context.buffers).setBlockInfo(blockState, ExtendedDataHelper.BLOCK_RENDER_TYPE);
 		}
 	}
 
@@ -92,16 +92,16 @@ public class MixinChunkRenderRebuildTask {
 										WorldSlice slice, int baseX, int baseY, int baseZ, int maxX, int maxY, int maxZ,
 										BlockPos.MutableBlockPos pos, BlockPos.MutableBlockPos renderOffset, BlockRenderContext context2,
 										int relY, int relZ, int relX, BlockState blockState, FluidState fluidState) {
-		if (context.buffers instanceof ChunkBuildBuffersExt) {
-			((ChunkBuildBuffersExt) context.buffers).iris$setMaterialId(fluidState.createLegacyBlock(), ExtendedDataHelper.FLUID_RENDER_TYPE);
+		if (context.buffers instanceof IrisVertexEncoder) {
+			((IrisVertexEncoder) context.buffers).setBlockInfo(fluidState.createLegacyBlock(), ExtendedDataHelper.FLUID_RENDER_TYPE);
 		}
 	}
 
 	@Inject(method = "execute(Lme/jellysquid/mods/sodium/client/render/chunk/compile/ChunkBuildContext;Lme/jellysquid/mods/sodium/client/util/task/CancellationToken;)Lme/jellysquid/mods/sodium/client/render/chunk/compile/ChunkBuildOutput;",
 		at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/block/state/BlockState;hasBlockEntity()Z"))
 	private void iris$resetContext(ChunkBuildContext buildContext, CancellationToken cancellationSource, CallbackInfoReturnable<ChunkBuildOutput> cir) {
-		if (buildContext.buffers instanceof ChunkBuildBuffersExt) {
-			((ChunkBuildBuffersExt) buildContext.buffers).iris$resetBlockContext();
+		if (buildContext.buffers instanceof IrisVertexEncoder) {
+			((IrisVertexEncoder) buildContext.buffers).clearInfo();
 		}
 	}
 }

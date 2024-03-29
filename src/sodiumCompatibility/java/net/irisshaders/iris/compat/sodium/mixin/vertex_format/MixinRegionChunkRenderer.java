@@ -8,7 +8,7 @@ import me.jellysquid.mods.sodium.client.render.chunk.DefaultChunkRenderer;
 import me.jellysquid.mods.sodium.client.render.chunk.ShaderChunkRenderer;
 import me.jellysquid.mods.sodium.client.render.chunk.vertex.format.ChunkMeshAttribute;
 import me.jellysquid.mods.sodium.client.render.chunk.vertex.format.ChunkVertexType;
-import net.irisshaders.iris.compat.sodium.impl.IrisChunkShaderBindingPoints;
+import net.irisshaders.iris.compat.sodium.impl.shader.IrisChunkShaderBindingPoints;
 import net.irisshaders.iris.compat.sodium.impl.vertex_format.IrisChunkMeshAttributes;
 import net.irisshaders.iris.shaderpack.materialmap.WorldRenderingSettings;
 import org.spongepowered.asm.mixin.Mixin;
