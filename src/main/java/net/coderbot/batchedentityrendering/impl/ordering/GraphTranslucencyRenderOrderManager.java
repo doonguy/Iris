@@ -15,6 +15,7 @@ import net.minecraft.client.renderer.RenderType;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
+import java.util.Comparator;
 
 public class GraphTranslucencyRenderOrderManager implements RenderOrderManager {
     private final FeedbackArcSetProvider feedbackArcSetProvider;
@@ -108,39 +109,56 @@ public class GraphTranslucencyRenderOrderManager implements RenderOrderManager {
 		types.put(type, new MapDigraph<>());
 	}
 
-    public List<RenderType> getRenderOrder() {
-        int layerCount = 0;
+	private class RenderTypeOrderer implements Comparator<RenderType> {
+		@Override
+		public int compare(RenderType o1, RenderType o2) {
+			return Integer.compare(getPriority(o1), getPriority(o2));
+		}
 
-        for (Digraph<RenderType> graph : types.values()) {
-            layerCount += graph.getVertexCount();
-        }
+		private int getPriority(RenderType renderType) {
+			String texture = renderType.toString();
+			if (texture.contains("horse") && !texture.contains("armor") && !texture.contains("markings")) {
+				return 1; // Horse without armor or markings
+			} else if (texture.contains("markings")) {
+				return 2; // Horse with markings
+			} else if (texture.contains("armor")) {
+				return 3; // Horse with armor
+			} else {
+				return 4; // Others (fallback)
+			}
+		}
+	}
 
-        List<RenderType> allLayers = new ArrayList<>(layerCount);
+	public List<RenderType> getRenderOrder() {
+		List<RenderType> allLayers = new ArrayList<>();
 
-        for (Digraph<RenderType> graph : types.values()) {
-            // TODO: Make sure that FAS can't become a bottleneck!
-            // Running NP-hard algorithms in a real time rendering loop might not be an amazing idea.
-            // This shouldn't be necessary in sane scenes, though, and if there aren't cycles,
-            // then this *should* be relatively inexpensive, since it'll bail out and return an empty set.
-            FeedbackArcSet<RenderType> arcSet =
-                    feedbackArcSetProvider.getFeedbackArcSet(graph, graph, FeedbackArcSetPolicy.MIN_WEIGHT);
+		for (Digraph<RenderType> graph : types.values()) {
+			// TODO: Make sure that FAS can't become a bottleneck!
+			// Running NP-hard algorithms in a real time rendering loop might not be an amazing idea.
+			// This shouldn't be necessary in sane scenes, though, and if there aren't cycles,
+			// then this *should* be relatively inexpensive, since it'll bail out and return an empty set.
+			FeedbackArcSet<RenderType> arcSet =
+				feedbackArcSetProvider.getFeedbackArcSet(graph, graph, FeedbackArcSetPolicy.MIN_WEIGHT);
 
-            if (arcSet.getEdgeCount() > 0) {
-                // This means that our dependency graph had cycles!!!
-                // This is very weird and isn't expected - but we try to handle it gracefully anyways.
+			if (arcSet.getEdgeCount() > 0) {
+				// This means that our dependency graph had cycles!!!
+				// This is very weird and isn't expected - but we try to handle it gracefully anyways.
 
-                // Our feedback arc set algorithm finds some dependency links that can be removed hopefully
-                // without disrupting the overall order too much. Hopefully it isn't too slow!
-                for (RenderType source : arcSet.vertices()) {
-                    for (RenderType target : arcSet.targets(source)) {
-                        graph.remove(source, target);
-                    }
-                }
-            }
+				// Our feedback arc set algorithm finds some dependency links that can be removed hopefully
+				// without disrupting the overall order too much. Hopefully it isn't too slow!
+				for (RenderType source : arcSet.vertices()) {
+					for (RenderType target : arcSet.targets(source)) {
+						graph.remove(source, target);
+					}
+				}
+			}
 
-            allLayers.addAll(Digraphs.toposort(graph, false));
-        }
+			allLayers.addAll(Digraphs.toposort(graph, false));
+		}
 
-        return allLayers;
-    }
+		// Sort layers based on custom priority
+		allLayers.sort(new RenderTypeOrderer());
+
+		return allLayers;
+	}
 }
